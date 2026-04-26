@@ -1,66 +1,24 @@
-const { GoogleGenerativeAI } = require("@google/generative-ai")
+const axios = require("axios")
 const { z } = require("zod")
 const { zodToJsonSchema } = require("zod-to-json-schema")
 const puppeteer = require("puppeteer")
 
-const ai = new GoogleGenerativeAI(process.env.GOOGLE_GENAI_API_KEY, { apiVersion: 'v1' })
-
-
-const interviewReportSchema = z.object({
-    matchScore: z.number().describe("A score between 0 and 100 indicating how well the candidate's profile matches the job describe"),
-    technicalQuestions: z.array(z.object({
-        question: z.string().describe("The technical question can be asked in the interview"),
-        intention: z.string().describe("The intention of interviewer behind asking this question"),
-        answer: z.string().describe("How to answer this question, what points to cover, what approach to take etc.")
-    })).describe("Technical questions that can be asked in the interview along with their intention and how to answer them"),
-    behavioralQuestions: z.array(z.object({
-        question: z.string().describe("The technical question can be asked in the interview"),
-        intention: z.string().describe("The intention of interviewer behind asking this question"),
-        answer: z.string().describe("How to answer this question, what points to cover, what approach to take etc.")
-    })).describe("Behavioral questions that can be asked in the interview along with their intention and how to answer them"),
-    skillGaps: z.array(z.object({
-        skill: z.string().describe("The skill which the candidate is lacking"),
-        severity: z.enum([ "low", "medium", "high" ]).describe("The severity of this skill gap, i.e. how important is this skill for the job and how much it can impact the candidate's chances")
-    })).describe("List of skill gaps in the candidate's profile along with their severity"),
-    preparationPlan: z.array(z.object({
-        day: z.number().describe("The day number in the preparation plan, starting from 1"),
-        focus: z.string().describe("The main focus of this day in the preparation plan, e.g. data structures, system design, mock interviews etc."),
-        tasks: z.array(z.string()).describe("List of tasks to be done on this day to follow the preparation plan, e.g. read a specific book or article, solve a set of problems, watch a video etc.")
-    })).describe("A day-wise preparation plan for the candidate to follow in order to prepare for the interview effectively"),
-    title: z.string().describe("The title of the job for which the interview report is generated"),
-})
-
-/**
- * Retries an async function up to `retries` times on rate-limit (429) or unavailable (503) errors.
- */
-async function callWithRetry(fn, retries = 3) {
-    for (let i = 0; i < retries; i++) {
-        try {
-            return await fn()
-        } catch (err) {
-            const isRateLimit = err?.status === 429 || err?.status === 503
-            if (isRateLimit && i < retries - 1) {
-                const waitMs = (i + 1) * 5000 // wait 5s, then 10s
-                console.log(`AI service busy (attempt ${i + 1}). Retrying in ${waitMs / 1000}s...`)
-                await new Promise(resolve => setTimeout(resolve, waitMs))
-            } else {
-                throw err
-            }
-        }
-    }
-}
-
 async function generateInterviewReport({ resume, selfDescription, jobDescription }) {
+    const API_KEY = process.env.GOOGLE_GENAI_API_KEY;
+    const URL = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
 
     const prompt = `Generate a JSON interview report for:
                     Resume: ${resume.substring(0, 1500)}
                     Job: ${jobDescription.substring(0, 1500)}
                     Return ONLY raw JSON.`
 
-    const model = ai.getGenerativeModel({ model: "gemini-1.5-flash" })
+    const body = {
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { maxOutputTokens: 1000 }
+    };
 
-    const response = await model.generateContent(prompt)
-    const text = response.response.text()
+    const response = await axios.post(URL, body);
+    const text = response.data.candidates[0].content.parts[0].text;
     
     try {
         const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -70,7 +28,6 @@ async function generateInterviewReport({ resume, selfDescription, jobDescription
         console.error("AI Error:", text);
         throw new Error("AI data error");
     }
-
 }
 
 
@@ -98,33 +55,29 @@ async function generatePdfFromHtml(htmlContent) {
 }
 
 async function generateResumePdf({ resume, selfDescription, jobDescription }) {
+    const API_KEY = process.env.GOOGLE_GENAI_API_KEY;
+    const URL = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
 
-    const resumePdfSchema = z.object({
-        html: z.string().describe("The HTML content of the resume which can be converted to PDF using any library like puppeteer")
-    })
-
-    const prompt = `Generate resume for a candidate with the following details:
+    const prompt = `Generate resume for:
                         Resume: ${resume}
                         Self Description: ${selfDescription}
                         Job Description: ${jobDescription}
+                        Return JSON: { "html": "..." }`
 
-                        the response should be a JSON object with a single field "html" which contains the HTML content of the resume which can be converted to PDF using any library like puppeteer.
-                        The resume should be tailored for the given job description and should highlight the candidate's strengths and relevant experience. The HTML content should be well-formatted and structured, making it easy to read and visually appealing.
-                        The content of resume should be not sound like it's generated by AI and should be as close as possible to a real human-written resume.
-                        you can highlight the content using some colors or different font styles but the overall design should be simple and professional.
-                        The content should be ATS friendly, i.e. it should be easily parsable by ATS systems without losing important information.
-                        The resume should not be so lengthy, it should ideally be 1-2 pages long when converted to PDF. Focus on quality rather than quantity and make sure to include all the relevant information that can increase the candidate's chances of getting an interview call for the given job description.
-                    `
+    const body = {
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { maxOutputTokens: 2000 }
+    };
 
-    const response = await callWithRetry(() => ai.getGenerativeModel({ model: "gemini-1.5-flash" }).generateContent(prompt))
-    const text = response.response.text()
-    const jsonString = text.replace(/```json|```/g, "").trim()
+    const response = await axios.post(URL, body);
+    const text = response.data.candidates[0].content.parts[0].text;
+    
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    const jsonString = jsonMatch ? jsonMatch[0] : text;
     const jsonContent = JSON.parse(jsonString)
 
     const pdfBuffer = await generatePdfFromHtml(jsonContent.html)
-
     return pdfBuffer
-
 }
 
 module.exports = { generateInterviewReport, generateResumePdf }
