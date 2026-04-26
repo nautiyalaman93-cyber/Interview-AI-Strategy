@@ -3,7 +3,7 @@ const { z } = require("zod")
 const { zodToJsonSchema } = require("zod-to-json-schema")
 const puppeteer = require("puppeteer")
 
-const ai = new GoogleGenerativeAI(process.env.GOOGLE_GENAI_API_KEY)
+const ai = new GoogleGenerativeAI(process.env.GOOGLE_GENAI_API_KEY, { apiVersion: 'v1' })
 
 
 const interviewReportSchema = z.object({
@@ -57,7 +57,7 @@ async function generateInterviewReport({ resume, selfDescription, jobDescription
                     Job: ${jobDescription.substring(0, 1500)}
                     Return ONLY raw JSON.`
 
-    const model = ai.getGenerativeModel({ model: "gemini-pro" })
+    const model = ai.getGenerativeModel({ model: "gemini-1.5-flash" })
 
     const response = await model.generateContent(prompt)
     const text = response.response.text()
