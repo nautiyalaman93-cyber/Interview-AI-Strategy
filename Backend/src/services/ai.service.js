@@ -54,22 +54,27 @@ async function callWithRetry(fn, retries = 3) {
 
 async function generateInterviewReport({ resume, selfDescription, jobDescription }) {
 
-    const prompt = `Task: Create an interview prep JSON.
-                    Format: { "matchScore": number, "technicalQuestions": [{"question", "intention", "answer"}], "behavioralQuestions": [{"question", "intention", "answer"}], "skillGaps": [{"skill", "severity"}], "preparationPlan": [{"day", "focus", "tasks"}] }
-                    Keep it concise. Max 3 questions per section.
-                    Details: Resume: ${resume.substring(0, 2000)}, Job: ${jobDescription.substring(0, 2000)}`
+    const prompt = `Generate a structured interview prep report.
+                    Resume: ${resume.substring(0, 3000)}
+                    Self Description: ${selfDescription.substring(0, 1000)}
+                    Job Description: ${jobDescription.substring(0, 3000)}`
 
-    const response = await ai.getGenerativeModel({ model: "gemini-1.5-flash" }).generateContent(prompt)
+    const model = ai.getGenerativeModel({ 
+        model: "gemini-1.5-flash",
+        generationConfig: { responseMimeType: "application/json" }
+    })
+
+    const response = await model.generateContent(prompt)
     const text = response.response.text()
     
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    const jsonString = jsonMatch ? jsonMatch[0] : text;
-    
     try {
-        return JSON.parse(jsonString)
+        return JSON.parse(text)
     } catch (e) {
         console.error("JSON Parse Error:", text);
-        throw new Error("AI returned invalid JSON");
+        // Fallback for non-JSON mode responses
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (jsonMatch) return JSON.parse(jsonMatch[0]);
+        throw new Error("AI failed to return a valid report");
     }
 
 }
