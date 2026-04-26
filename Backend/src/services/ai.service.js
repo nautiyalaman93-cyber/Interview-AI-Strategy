@@ -68,7 +68,7 @@ async function generateInterviewReport({ resume, selfDescription, jobDescription
         }
     }))
 
-    return JSON.parse(response.text)
+    return JSON.parse(response.response.text())
 
 }
 
@@ -124,7 +124,7 @@ async function generateResumePdf({ resume, selfDescription, jobDescription }) {
     }))
 
 
-    const jsonContent = JSON.parse(response.text)
+    const jsonContent = JSON.parse(response.response.text())
 
     const pdfBuffer = await generatePdfFromHtml(jsonContent.html)
 
