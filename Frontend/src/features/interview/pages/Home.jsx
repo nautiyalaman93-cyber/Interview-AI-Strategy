@@ -34,7 +34,7 @@ const Home = () => {
             alert("Please paste a Job Description before generating your plan.")
             return
         }
-        if (!resumeInputRef.current.files[0] && !selfDescription.trim()) {
+        if (!selectedFileName && !selfDescription.trim()) {
             alert("Please upload a Resume OR fill in a Self Description.")
             return
         }
@@ -44,8 +44,6 @@ const Home = () => {
             const data = await generateReport({ jobDescription, selfDescription, resumeFile })
             if (data?.interviewReport?._id) {
                 navigate(`/interview/${data.interviewReport._id}`)
-            } else {
-                alert("AI service is busy or rate-limited. Please wait 1 minute and try again.")
             }
         } catch (error) {
             console.error("Report generation failed:", error)
