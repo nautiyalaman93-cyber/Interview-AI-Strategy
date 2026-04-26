@@ -42,8 +42,8 @@ async function callWithRetry(fn, retries = 3) {
         } catch (err) {
             const isRateLimit = err?.status === 429 || err?.status === 503
             if (isRateLimit && i < retries - 1) {
-                const waitMs = (i + 1) * 20000 // wait 20s, then 40s
-                console.log(`Gemini rate limited (attempt ${i + 1}). Retrying in ${waitMs / 1000}s...`)
+                const waitMs = (i + 1) * 5000 // wait 5s, then 10s
+                console.log(`AI service busy (attempt ${i + 1}). Retrying in ${waitMs / 1000}s...`)
                 await new Promise(resolve => setTimeout(resolve, waitMs))
             } else {
                 throw err
@@ -60,15 +60,12 @@ async function generateInterviewReport({ resume, selfDescription, jobDescription
                         Job Description: ${jobDescription}
 `
 
-    const response = await callWithRetry(() => ai.getGenerativeModel({ model: "gemini-1.5-flash" }).generateContent({
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: {
-            responseMimeType: "application/json",
-            responseSchema: zodToJsonSchema(interviewReportSchema),
-        }
-    }))
-
-    return JSON.parse(response.response.text())
+    const response = await callWithRetry(() => ai.getGenerativeModel({ model: "gemini-1.5-flash" }).generateContent(prompt))
+    const text = response.response.text()
+    
+    // Clean up response in case AI adds markdown code blocks
+    const jsonString = text.replace(/```json|```/g, "").trim()
+    return JSON.parse(jsonString)
 
 }
 
@@ -115,16 +112,10 @@ async function generateResumePdf({ resume, selfDescription, jobDescription }) {
                         The resume should not be so lengthy, it should ideally be 1-2 pages long when converted to PDF. Focus on quality rather than quantity and make sure to include all the relevant information that can increase the candidate's chances of getting an interview call for the given job description.
                     `
 
-    const response = await callWithRetry(() => ai.getGenerativeModel({ model: "gemini-1.5-flash" }).generateContent({
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: {
-            responseMimeType: "application/json",
-            responseSchema: zodToJsonSchema(resumePdfSchema),
-        }
-    }))
-
-
-    const jsonContent = JSON.parse(response.response.text())
+    const response = await callWithRetry(() => ai.getGenerativeModel({ model: "gemini-1.5-flash" }).generateContent(prompt))
+    const text = response.response.text()
+    const jsonString = text.replace(/```json|```/g, "").trim()
+    const jsonContent = JSON.parse(jsonString)
 
     const pdfBuffer = await generatePdfFromHtml(jsonContent.html)
 
