@@ -13,7 +13,9 @@ app.use(cors({
         // allow requests with no origin (like mobile apps or curl requests)
         if (!origin) return callback(null, true);
         
-        if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV !== 'production') {
+        const isVercelPreview = origin.endsWith('.vercel.app');
+        
+        if (allowedOrigins.indexOf(origin) !== -1 || isVercelPreview || process.env.NODE_ENV !== 'production') {
             callback(null, true);
         } else {
             console.error(`CORS Error: Origin ${origin} not allowed`);
