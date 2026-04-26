@@ -52,27 +52,22 @@ async function callWithRetry(fn, retries = 3) {
 
 async function generateInterviewReport({ resume, selfDescription, jobDescription }) {
 
-    // Keep only the first 1500 chars of resume and job description to be lightning fast
-    const prompt = `Report for:
+    const prompt = `Generate a JSON interview report for:
                     Resume: ${resume.substring(0, 1500)}
-                    Job: ${jobDescription.substring(0, 1500)}`
+                    Job: ${jobDescription.substring(0, 1500)}
+                    Return ONLY raw JSON.`
 
-    const model = ai.getGenerativeModel({ 
-        model: "gemini-1.5-flash-latest",
-        generationConfig: { 
-            responseMimeType: "application/json",
-            maxOutputTokens: 1000 
-        }
-    })
+    const model = ai.getGenerativeModel({ model: "gemini-pro" })
 
     const response = await model.generateContent(prompt)
     const text = response.response.text()
     
     try {
-        return JSON.parse(text)
-    } catch (e) {
         const jsonMatch = text.match(/\{[\s\S]*\}/);
-        if (jsonMatch) return JSON.parse(jsonMatch[0]);
+        const jsonString = jsonMatch ? jsonMatch[0] : text;
+        return JSON.parse(jsonString)
+    } catch (e) {
+        console.error("AI Error:", text);
         throw new Error("AI data error");
     }
 
