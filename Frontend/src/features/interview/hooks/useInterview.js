@@ -23,7 +23,7 @@ export const useInterview = () => {
             return response
         } catch (error) {
             console.error("Hook error:", error)
-            return null
+            throw error
         } finally {
             setLoading(false)
         }
