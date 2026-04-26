@@ -12,7 +12,9 @@ async function generateInterViewReportController(req, res) {
 
     let resumeText = ""
     if (req.file) {
-        const resumeContent = await pdfParse(req.file.buffer)
+        // Handle different ways pdf-parse can be exported
+        const pdf = typeof pdfParse === 'function' ? pdfParse : pdfParse.default;
+        const resumeContent = await pdf(req.file.buffer)
         resumeText = resumeContent.text
     }
     const { selfDescription, jobDescription } = req.body
