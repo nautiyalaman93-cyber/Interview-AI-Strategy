@@ -54,18 +54,37 @@ async function callWithRetry(fn, retries = 3) {
 
 async function generateInterviewReport({ resume, selfDescription, jobDescription }) {
 
-    const prompt = `Generate an interview report for a candidate with the following details:
-                        Resume: ${resume}
-                        Self Description: ${selfDescription}
-                        Job Description: ${jobDescription}
+    const prompt = `Generate an interview report in JSON format for a candidate. 
+                    IMPORTANT: Return ONLY the raw JSON object. Do not include any conversational text or markdown.
+                    Structure:
+                    {
+                        "matchScore": number (0-100),
+                        "technicalQuestions": [{"question": string, "intention": string, "answer": string}],
+                        "behavioralQuestions": [{"question": string, "intention": string, "answer": string}],
+                        "skillGaps": [{"skill": string, "severity": "low"|"medium"|"high"}],
+                        "preparationPlan": [{"day": number, "focus": string, "tasks": [string]}]
+                    }
+                    
+                    Details:
+                    Resume: ${resume}
+                    Self Description: ${selfDescription}
+                    Job Description: ${jobDescription}
 `
 
     const response = await callWithRetry(() => ai.getGenerativeModel({ model: "gemini-1.5-flash" }).generateContent(prompt))
     const text = response.response.text()
+    console.log("AI Raw Response Length:", text.length);
     
-    // Clean up response in case AI adds markdown code blocks
-    const jsonString = text.replace(/```json|```/g, "").trim()
-    return JSON.parse(jsonString)
+    // Extract JSON even if AI adds extra text
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    const jsonString = jsonMatch ? jsonMatch[0] : text;
+    
+    try {
+        return JSON.parse(jsonString)
+    } catch (e) {
+        console.error("JSON Parse Error. Raw Text:", text);
+        throw new Error("AI returned invalid JSON format");
+    }
 
 }
 

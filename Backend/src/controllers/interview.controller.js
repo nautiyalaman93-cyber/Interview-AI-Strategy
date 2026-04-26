@@ -37,9 +37,9 @@ async function generateInterViewReportController(req, res) {
             interviewReport
         })
     } catch (error) {
-        console.error("AI Generation Error:", error);
+        console.error("AI GENERATION FAILED:", error.message || error);
         res.status(500).json({
-            message: "Failed to generate AI report. The Google AI service might be busy or out of quota. Please try again in a minute."
+            message: `AI Service Error: ${error.message || "The AI service is busy"}. Please try again in 30 seconds.`
         })
     }
 }
