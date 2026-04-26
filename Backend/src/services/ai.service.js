@@ -58,10 +58,10 @@ async function generateInterviewReport({ resume, selfDescription, jobDescription
                     Job: ${jobDescription.substring(0, 1500)}`
 
     const model = ai.getGenerativeModel({ 
-        model: "gemini-1.5-flash",
+        model: "gemini-1.5-flash-latest",
         generationConfig: { 
             responseMimeType: "application/json",
-            maxOutputTokens: 1000 // Limit output size to speed up generation
+            maxOutputTokens: 1000 
         }
     })
 
