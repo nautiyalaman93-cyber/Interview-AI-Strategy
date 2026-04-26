@@ -1,9 +1,9 @@
-const { GoogleGenAI } = require("@google/genai")
+const { GoogleGenerativeAI } = require("@google/generative-ai")
 const { z } = require("zod")
 const { zodToJsonSchema } = require("zod-to-json-schema")
 const puppeteer = require("puppeteer")
 
-const ai = new GoogleGenAI(process.env.GOOGLE_GENAI_API_KEY)
+const ai = new GoogleGenerativeAI(process.env.GOOGLE_GENAI_API_KEY)
 
 
 const interviewReportSchema = z.object({
